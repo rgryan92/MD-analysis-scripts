@@ -1,0 +1,47 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.dates as dates
+
+%matplotlib inline
+
+#filepath = 'Users/RRyan/Documents/Broady/Broady_qdoas/broady_qd_output/'
+filepath = 'PhD/Broady_data_backup/UniMelb/broady_data_rr/UM_Bin_V/2017/'
+
+inst = 'UM'                         # The data from which institution is being viewed? <just for saving purposes!>
+                                    #      UM = Uni. of Melb, UW = Wollongong Uni, NZ = NIWA New Zealand, 
+                                    #      BM = Bureau of Meteorology Broadmeadows
+file = 'UM_Bin_V_q4'
+fitwindow = '450-465'
+filetosave = file+'_'
+ext = '.ASC'
+#filetoopen = 'C:/'+filepath+file+fitwindow+ext
+filetoopen = 'F:/'+filepath+file+ext
+num_calwindows = 25
+header = num_calwindows+1
+
+# Reference method
+ref_each_scan = True
+one_ref_only = False
+
+# What species are being fitted?
+Ring = True
+NO2t = True
+NO2s = True
+O4 = True
+O3s = True
+O3t = True
+H2O = True
+BrO = False
+HCHO = False
+CHOCHO = True
+
+UVregion = False        # HCHO fitting window (324-359 nm)
+UVregion2 = False       # NO2/O4 fitting window (338-370 nm)
+VISregion = False       # NO2/O4 fitting window (425-490 nm)
+VISregion2 = False       # Ozone/NO2/O4 fitting window (450-520 nm)
+VISregion3 = True       # Glyoxal fitting window (434-460 nm)
+
+plot_VCDs = True  # True if plot the vertical columns, false if plot the slant columns
+
+readin_start = pd.read_csv(filetoopen,  header=header, sep = '\t', parse_dates=[['Date', 'Time']], dayfirst=True)
