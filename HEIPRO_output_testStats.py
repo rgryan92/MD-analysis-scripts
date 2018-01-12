@@ -1,0 +1,296 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Nov 22 12:05:22 2017
+
+@author: rgryan
+"""
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+import glob
+import datetime
+
+
+sh = True    # Plotting the scale height info?
+zc = False   # Plotting the zero height concentration info?
+re = False    # Plotting the a.p. relative error info?
+
+path = 'E:\\Sciatran2\\AEROSOL_RETRIEVAL_v-1-5\\Campaign\\'
+
+date = '20170307'
+time = '130130'
+startdate = datetime.datetime(2017, 3, 7, 6)  
+enddate = datetime.datetime(2017, 3, 7, 20)
+
+tests = ['t111', 't112', 't102', 't113', 't114', 't115']
+dates = ['20170307', '20170308', '20170309']
+
+scale_height = [0.2, 0.4, 0.6, 0.8,  1.0,1.2]
+zconc = [0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.11, 0.12, 0.13, 0.14, 0.15]
+relerror = [0.1, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0]
+colours = ['red', 'orangered', 'orange', 'yellow', 'greenyellow', 'limegreen', 'green', 'lightseagreen', 
+           'aqua', 'skyblue', 'mediumblue', 'royalblue', 'midnightblue', 
+           'darkviolet', 'darkmagenta', 'magenta', 'pink']
+
+mm_rms = []
+aod_ave = []
+aod_vals = pd.DataFrame()
+aod_err_vals = pd.DataFrame()
+aodErr_ave = []
+aodPErr_ave = []
+csq_ave = []
+dofs_ave = []
+
+for test in tests:
+    fullpath = path+'aer_retr_7-9March2017_'+test+'\\'+date+'\\'
+    
+    # Read in the measured and retrieved values
+    mmfile = pd.read_csv(fullpath+'general/meas_'+date+'.dat', delim_whitespace=True, 
+                       parse_dates=[['date', 'time']])
+    mmfile = mmfile[mmfile['elev']<80]
+
+    x = np.array((mmfile['elev']))
+    y = np.array((mmfile['O4meas']))
+    y1 = np.array((mmfile['O4retr']))
+    err = np.array((mmfile['err_O4meas']))
+
+    # Calculate RMS value for (O4meas - O4retr)
+    ss = [(((y[i])-(y1[i]))**2) for i in np.arange(len(y))]
+    rms = np.sqrt(sum(ss)/len(ss))
+    mm_rms.append(rms)
+    
+    # Read in the retrieved AOD and errors
+    aodfile = pd.read_csv(fullpath+'general/retrieval_'+date+'.dat', delim_whitespace=True, 
+                       parse_dates=[['Date', 'Time']])
+    aod_ave.append(aodfile['AOT361'].mean())
+    aodErr_ave.append(aodfile['err_AOT361'].mean())
+    aodfile['percentError'] = 100*(aodfile['err_AOT361']/aodfile['AOT361'])
+    aodPErr_ave.append(aodfile['percentError'].mean())
+    aodfile = aodfile[aodfile['AOT361']<0.31] # remove errors where AOD too high to be realistic
+    aodfile = aodfile[aodfile['AOT361']>0] #  and remove negative AOD values
+    
+    # The chi squared
+    csq_ave.append(aodfile['chisq'].mean())
+    
+    # Save the daily aod diurnal profile, and associated errors
+    aod_vals[test] = aodfile['AOT361']
+    aod_err_vals[test] = aodfile['err_AOT361']
+    
+    # Averaging kernels
+    akfiles = glob.glob(fullpath+'av_kernels/*.dat')
+    dofs_ = []
+    for file in akfiles:
+        akf = pd.read_csv(file, delim_whitespace=True)
+
+        ak_formatrix = akf.iloc[0:20,5:25]
+        ak_matrix = ak_formatrix.as_matrix()
+        dofs_.append(np.trace(ak_matrix))
+    dofs_ave.append((sum(dofs_)/float(len(dofs_))))
+    
+    # Also plot specific averaging kernels from one measurement time
+    akfile = pd.read_csv(fullpath+'av_kernels/avk_ext_'+date+'_'+time+'.dat',
+                     delim_whitespace=True)
+
+    ak_formatrix = akfile.iloc[0:20,5:25]
+    ak_matrix = ak_formatrix.as_matrix()
+    dofs = np.trace(ak_matrix)
+    xlim=[-0.1,1.]
+    fontsize=16
+    figsize=(3.5,3.5)
+
+    akp = akfile.plot(x='AVK_0.1km', y='z', color='red', xlim=xlim, 
+                  figsize=figsize, fontsize=fontsize)
+    akfile.plot(x='AVK_0.3km', y='z', ax=akp,  color='orangered', xlim=xlim, 
+                  figsize=figsize, fontsize=fontsize)
+    akfile.plot(x='AVK_0.5km', y='z', ax=akp,  color='orange', xlim=xlim, 
+                  figsize=figsize, fontsize=fontsize)
+    akfile.plot(x='AVK_0.7km', y='z', ax=akp,  color='yellow', xlim=xlim, 
+                  figsize=figsize, fontsize=fontsize)
+    akfile.plot(x='AVK_0.9km', y='z', ax=akp,  color='greenyellow', xlim=xlim, 
+                  figsize=figsize, fontsize=fontsize)
+    akfile.plot(x='AVK_1.1km', y='z', ax=akp,  color='limegreen', xlim=xlim, 
+                  figsize=figsize, fontsize=fontsize)
+    akfile.plot(x='AVK_1.3km', y='z', ax=akp,  color='green', xlim=xlim, 
+                  figsize=figsize, fontsize=fontsize)
+    akfile.plot(x='AVK_1.5km', y='z', ax=akp,  color='lightseagreen', xlim=xlim, 
+                  figsize=figsize, fontsize=fontsize)
+    akfile.plot(x='AVK_1.7km', y='z', ax=akp,  color='aqua', xlim=xlim, 
+                  figsize=figsize, fontsize=fontsize)
+    akfile.plot(x='AVK_1.9km', y='z', ax=akp,  color='mediumaquamarine', xlim=xlim, 
+                  figsize=figsize, fontsize=fontsize)
+    akfile.plot(x='AVK_2.1km', y='z', ax=akp,  color='mediumturquoise', xlim=xlim, 
+                  figsize=figsize, fontsize=fontsize)
+    akfile.plot(x='AVK_2.3km', y='z', ax=akp,  color='powderblue', xlim=xlim, 
+                  figsize=figsize, fontsize=fontsize)
+    akfile.plot(x='AVK_2.5km', y='z', ax=akp,  color='skyblue', xlim=xlim,
+                  figsize=figsize, fontsize=fontsize)
+    akfile.plot(x='AVK_2.7km', y='z', ax=akp,  color='mediumblue', xlim=xlim, 
+                  figsize=figsize, fontsize=fontsize)
+    akfile.plot(x='AVK_2.9km', y='z', ax=akp,  color='royalblue', xlim=xlim, 
+                  figsize=figsize, fontsize=fontsize)
+    akfile.plot(x='AVK_3.1km', y='z', ax=akp,  color='midnightblue', xlim=xlim,
+                  figsize=figsize, fontsize=fontsize)
+    akfile.plot(x='AVK_3.3km', y='z', ax=akp,  color='darkviolet', xlim=xlim, 
+                  figsize=figsize, fontsize=fontsize)
+    akfile.plot(x='AVK_3.5km', y='z', ax=akp,  color='darkmagenta', xlim=xlim, 
+                  figsize=figsize, fontsize=fontsize)
+    akfile.plot(x='AVK_3.7km', y='z', ax=akp,  color='magenta',xlim=xlim,
+                  figsize=figsize, fontsize=fontsize)
+    akfile.plot(x='AVK_3.9km', y='z', ax=akp,  color='pink',xlim=xlim,
+                  figsize=figsize, fontsize=fontsize)
+    entries = ['tot','0.1', '0.3', '0.5', '0.7', '0.9', '1.1', '1.3', '1.5', '1.7', 
+            '1.9', '2.1', '2.3', '2.5', '2.7', '2.9', '3.1', '3.3', 
+            '3.5', '3.7', '3.9']
+    akp.legend(entries, fontsize=7, loc='center left', bbox_to_anchor=(1, 0.5))
+    akp.text(0.25, 3.2, 'DOFS = '+str(round(dofs,3)), size=15)
+    #akp.set_title('NO2_AVK_'+date+'_'+time, fontsize=fontsize)
+    akp.set_xlabel('Aer. Ext. AK', fontsize=fontsize)
+    akp.set_ylabel('Altitude (km)', fontsize=fontsize)  
+    fig = akp.get_figure()
+    fig.savefig(path+'ap_relerror_adap_akplots/'+test+'_avk_'+date+'_'+time+'.pdf', 
+                    bbox_inches='tight')
+    
+    profile = pd.read_csv(fullpath+'/profiles/prof361nm_'+date+'_'+time+'.dat',
+                     delim_whitespace=True)
+    xlim=(0,0.30)
+    ylim=(0,4)
+    #figsize=(3,3)
+    prop = profile.plot(x='apriori', y='z', style='k-', figsize=figsize,
+                    xlim=xlim, ylim=ylim, fontsize=fontsize)
+    profile.plot(x='retrieved', y='z', xerr='err_retrieved', figsize=figsize, 
+             color='darkorange', xlim=xlim, ylim=ylim, ax=prop, fontsize=fontsize)
+    prop.legend(['a-priori', 'retrieved'], loc='upper right', fontsize=fontsize)
+
+    # Set the axes ticks and labels
+    xticks = [0,  5, 10, 15, 20, 25, 30]
+    xlab = '(km$^{-1}$) (x10$^{-2})'
+    yticks = [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0]
+    ylab = 'Altitude (km)'
+
+    prop.set_xticklabels(xticks, fontsize=fontsize)
+    prop.set_yticklabels(yticks, fontsize=fontsize)
+    prop.set_xlabel(xlab, fontsize=fontsize)
+    prop.set_ylabel(ylab, fontsize=fontsize)
+
+    fig = prop.get_figure()
+    fig.savefig(path+'ap_relerror_adap_profplots/'+test+'_prof_'+date+'_'+time+'.pdf', 
+                    bbox_inches='tight')
+
+    prep = profile.plot(x='err_smooth', y='z', style='m-', figsize=figsize,
+                    xlim=xlim, ylim=ylim, fontsize=fontsize)
+    profile.plot(x='err_noise', y='z', style='b-',figsize=figsize,
+             xlim=xlim, ylim=ylim, ax=prep, fontsize=fontsize)
+
+    prep.set_xticklabels(xticks, fontsize=fontsize)
+    prep.set_yticklabels(yticks, fontsize=fontsize)
+    prep.set_xlabel(xlab, fontsize=fontsize)
+    prep.set_ylabel(ylab, fontsize=fontsize)
+
+    prep.legend(['Smooth.', 'Noise'], loc='upper right', fontsize=fontsize)
+    fig2 = prep.get_figure()
+    fig2.savefig(path+'ap_relerror_adap_profplots/'+test+'_profErrors_'+date+'_'+time+'.pdf', 
+                    bbox_inches='tight')
+
+statsummary = pd.DataFrame()
+statsummary['test'] = pd.Series(tests)
+statsummary['mm_rms'] = pd.Series(mm_rms)
+statsummary['aod_ave'] = pd.Series(aod_ave)
+statsummary['aodErr_ave'] = pd.Series(aodErr_ave)
+statsummary['aodPErr_ave'] = pd.Series(aodPErr_ave)
+statsummary['csq_ave'] = pd.Series(csq_ave)
+statsummary['dofs_ave'] = pd.Series(dofs_ave)
+
+if sh==True:
+    aod_vals.columns = [str(i) for i in scale_height]
+    aod_err_vals.columns = [str(i) for i in scale_height]
+elif zc==True:
+    aod_vals.columns = [str(i) for i in zconc]
+    aod_err_vals.columns = [str(i) for i in zconc]
+elif re==True:
+    aod_vals.columns = [str(i) for i in relerror]
+    aod_err_vals.columns = [str(i) for i in relerror]
+    
+aod_vals['Date_Time'] = aodfile['Date_Time']
+aod_err_vals['Date_Time'] = aodfile['Date_Time']
+#%%
+statsummary.to_csv(path+'apriori_tests_statsummary.txt', sep = '\t', index=False)
+aod_vals.to_csv(path+'apriori_tests_diurnalAOD.txt', sep = '\t', index=False)
+aod_err_vals.to_csv(path+'apriori_tests_diurnalAODerrors.txt', sep = '\t', index=False)
+#%%
+# Plot all the diurnal profiles together
+# ======================================
+scale_height_strings = [str(i) for i in scale_height]
+zconc_strings = [str(i) for i in zconc]
+relerror_strings = [str(i) for i in relerror]
+figsize=(6,5)
+fontsize=14
+
+fig = plt.figure(figsize=figsize)
+ax=fig.add_subplot(111)
+#ax.set_facecolor('white')
+c=0   # Colour counter
+
+if sh==True:
+    savename='scaleheight'
+    for j in scale_height_strings:
+        x = np.array((aod_vals['Date_Time']))
+        y = np.array((aod_vals[j]))
+        yerr = np.array((aod_err_vals[j]))
+        ax.errorbar(x,y,yerr=yerr,color=colours[c])  
+        c = c+1
+    ax.legend(scale_height_strings, fontsize=fontsize, loc=2, bbox_to_anchor=(1,1))    
+elif zc==True:
+    savename='zconc'
+    for j in zconc_strings:
+        x = np.array((aod_vals['Date_Time']))
+        y = np.array((aod_vals[j]))
+        yerr = np.array((aod_err_vals[j]))
+        ax.errorbar(x,y,yerr=yerr,color=colours[c])  
+        c = c+1
+    ax.legend(zconc_strings, fontsize=fontsize, loc=2, bbox_to_anchor=(1,1))
+elif re==True:
+    savename='relerror'
+    for j in relerror_strings:
+        x = np.array((aod_vals['Date_Time']))
+        y = np.array((aod_vals[j]))
+        yerr = np.array((aod_err_vals[j]))
+        ax.errorbar(x,y,yerr=yerr,color=colours[c])  
+        c = c+1
+    ax.legend(relerror_strings, fontsize=fontsize, loc=2, bbox_to_anchor=(1,1))
+ax.set_xlabel('Time', fontsize=fontsize)
+ax.set_ylabel('AOD', fontsize=fontsize)
+fig.savefig(path+'apriori_tests_AODvs'+savename+'.png', bbox_to_anchor='tight')    
+#%%
+# Plot the stats summaries
+
+y1 = 'csq_ave'
+y2 = 'dofs_ave'
+
+figsize=(4,3)
+
+if sh==True:
+    savename='scaleheight'
+    xlab = 'Scale height (km)'
+    statsummary['ofinterest'] = pd.Series(scale_height)
+elif zc==True:
+    savename='zconc'
+    xlab = 'z(0) ext. ($km^(-1)$)'
+    statsummary['ofinterest'] = pd.Series(zconc)
+elif re==True:
+    savename='relerror'
+    xlab = 'z(0) ext. ($km^{-1}$)'
+    statsummary['ofinterest'] = pd.Series(relerror)
+    
+ssplot = statsummary.plot(x='ofinterest', y=y1, style='ro', figsize=figsize, label='Chi squared')
+statsummary.plot(x='ofinterest', y=y2, ax=ssplot, secondary_y=True, style='bo',
+                 figsize=figsize, label='DOFs')
+lines = ssplot.get_lines() + ssplot.right_ax.get_lines()
+ssplot.set_xlabel(xlab, fontsize=fontsize)
+ssplot.set_ylabel(y1, fontsize=fontsize, color='red')
+ssplot.right_ax.set_ylabel(y2, fontsize=fontsize, color='blue')
+ssplot.grid(False)
+ssplot.right_ax.grid(False)
+ssplot.legend(lines, [l.get_label() for l in lines], loc='center right')
+fg = ssplot.get_figure()
+fg.savefig(path+savename+'_'+y1+'_'+y2+'.png', 
+                    bbox_inches='tight')
